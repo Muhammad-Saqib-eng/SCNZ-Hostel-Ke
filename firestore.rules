@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Profile Validation
+    function isValidUser(data) {
+      return data.uid == request.auth.uid 
+        && (data.email == null || (data.email is string && data.email.size() <= 256))
+        && (data.allowance == null || data.allowance is number)
+        && data.keys().hasAll(['uid']);
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidUser(incoming());
+
+      // Expenses Subcollection
+      match /expenses/{expenseId} {
+        function isValidExpense(data) {
+          return data.userId == request.auth.uid
+            && data.name is string && data.name.size() <= 200
+            && data.amount is number && data.amount >= 0
+            && (data.category == null || data.category in ['Food', 'Transport', 'Social', 'Utilities', 'Academic', 'Misc'])
+            && data.keys().hasAll(['userId', 'name', 'amount']);
+        }
+
+        allow list, get: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidExpense(incoming());
+        allow delete: if isOwner(userId);
+      }
+
+      // Debts Subcollection
+      match /debts/{debtId} {
+        function isValidDebt(data) {
+          return data.userId == request.auth.uid
+            && data.peerName is string && data.peerName.size() <= 100
+            && data.amount is number && data.amount >= 0
+            && data.type is string 
+            && data.keys().hasAll(['userId', 'peerName', 'amount', 'type']);
+        }
+
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidDebt(incoming());
+        allow update: if isOwner(userId) && (
+          // Allow specific field updates for debts
+          incoming().diff(existing()).affectedKeys().hasOnly(['amount', 'settled', 'description'])
+          || isValidDebt(incoming())
+        );
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

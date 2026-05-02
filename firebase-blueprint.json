@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User specific settings and metadata",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "allowance": { "type": "number", "description": "Monthly budget set by user" },
+        "currency": { "type": "string", "default": "PKR" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Expense": {
+      "title": "Expense Entry",
+      "description": "An individual expense parsed by AI",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string", "enum": ["Food", "Transport", "Social", "Utilities", "Academic", "Misc"] },
+        "date": { "type": "string", "format": "date-time" },
+        "rawText": { "type": "string", "description": "The original text snippet from brain dump" }
+      },
+      "required": ["userId", "name", "amount", "category", "date"]
+    },
+    "Debt": {
+      "title": "Debt / Udhaar",
+      "description": "Tracking who owes who",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "peerName": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["i_owe", "owes_me"] },
+        "settled": { "type": "boolean", "default": false }
+      },
+      "required": ["userId", "peerName", "amount", "type"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Root user documents"
+    },
+    "/users/{userId}/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "User's individual expenses"
+    },
+    "/users/{userId}/debts/{debtId}": {
+      "schema": "Debt",
+      "description": "User's debts with roommates"
+    }
+  }
+}
